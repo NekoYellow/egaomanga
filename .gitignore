@@ -1,0 +1,10 @@
+node_modules/
+dist/
+public/wasm/
+reference-models/
+preview*.png
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
