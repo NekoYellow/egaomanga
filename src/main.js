@@ -2,7 +2,7 @@ import './style.css';
 import {FilesetResolver, ImageSegmenter} from '@mediapipe/tasks-vision';
 import {fitSize, smoothstep} from './processing.js';
 const $=id=>document.getElementById(id);
-let source, sourceURL, style='color', busy=false, segmenter, runtime, stream, revision=0;
+let source, sourceURL, style='soft', busy=false, segmenter, runtime, stream, revision=0;
 const worker=new Worker(new URL('./worker.js',import.meta.url),{type:'module'});
 const canvas=(w,h)=>Object.assign(document.createElement('canvas'),{width:w,height:h});
 const status=t=>{$('status').textContent=t;};
@@ -30,7 +30,13 @@ async function loadFile(file){
 $('file').onchange=e=>{loadFile(e.target.files[0]);e.target.value='';};
 $('drop').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('file').click();}};
 for(const type of ['dragover','dragleave','drop'])$('drop').addEventListener(type,e=>{e.preventDefault();$('drop').classList.toggle('drag',type==='dragover');if(type==='drop')loadFile(e.dataTransfer.files[0]);});
-document.querySelectorAll('.style').forEach(b=>b.onclick=()=>{style=b.dataset.style;document.querySelectorAll('.style').forEach(x=>x.classList.toggle('active',x===b));if(source)status('画风已调整，重新生成后生效');});
+const styleNames={soft:'彩色漫画',ink:'黑白墨线'};
+document.querySelectorAll('.style').forEach(b=>b.onclick=()=>{
+  if(busy)return;
+  style=b.dataset.style;
+  document.querySelectorAll('.style').forEach(x=>{x.classList.toggle('active',x===b);x.setAttribute('aria-pressed',String(x===b));});
+  if(source)generate();
+});
 $('strength').oninput=()=>{$('strength-value').textContent=$('strength').value+'%';};
 function lock(value){busy=value;document.querySelectorAll('aside button, aside input, aside select').forEach(e=>e.disabled=value);$('generate').disabled=value||!source;$('download').disabled=value||$('output').hidden;$('compare').disabled=value||$('output').hidden;}
 async function generate(){
@@ -49,20 +55,20 @@ async function generate(){
         for(let i=0;i<values.length;i++){image.data[i*4]=255;image.data[i*4+1]=255;image.data[i*4+2]=255;image.data[i*4+3]=Math.round(255*smoothstep(.2,.8,values[i]));}mctx.putImageData(image,0,0);
       });
     }
-    $('progress').textContent='归并色块、绘制赛璐璐阴影与墨线…';await tick();
+    $('progress').textContent='简化面部明暗、保留五官与绘制轮廓…';await tick();
     const pixels=ctx.getImageData(0,0,w,h).data;
     const output=await new Promise((resolve,reject)=>{worker.onmessage=e=>e.data.error?reject(new Error(e.data.error)):resolve(e.data.pixels);worker.onerror=()=>reject(new Error('图像处理失败，请刷新页面重试'));worker.postMessage({pixels,w,h,style,strength:Number($('strength').value)},[pixels.buffer]);});
     ctx.putImageData(new ImageData(output,w,h),0,0);
     if(maskCanvas){ctx.globalCompositeOperation='destination-in';ctx.drawImage(maskCanvas,0,0,w,h);ctx.globalCompositeOperation='source-over';}
     const max=Number($('resolution').value),scale=max/Math.max(w,h),out=$('output');out.width=Math.round(w*scale);out.height=Math.round(h*scale);
     const octx=out.getContext('2d');octx.imageSmoothingEnabled=true;octx.imageSmoothingQuality='high';octx.drawImage(input,0,0,out.width,out.height);
-    $('empty').hidden=true;out.hidden=false;$('compare-image').hidden=true;$('compare').textContent='查看原图';$('result-badge').textContent='创作完成';
+    $('empty').hidden=true;out.hidden=false;$('compare-image').hidden=true;$('compare').textContent='查看原图';$('result-badge').textContent=styleNames[style]+' · 已完成';
     status(`${out.width} × ${out.height} · ${((performance.now()-start)/1000).toFixed(1)} 秒 · ${maskCanvas?'透明背景':'保留背景'} · 高清插值导出`);
   }catch(e){status(e.message||'生成失败，请重试');}finally{$('working').hidden=true;lock(false);}
 }
 $('generate').onclick=generate;
 $('compare').onclick=()=>{const show=$('compare-image').hidden;$('compare-image').hidden=!show;$('output').hidden=show;$('compare').textContent=show?'返回漫画':'查看原图';};
-$('download').onclick=()=>{$('output').toBlob(blob=>{if(!blob)return status('导出失败，请重试');const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`egao-${Date.now()}.png`;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);},'image/png');};
+$('download').onclick=()=>{$('output').toBlob(blob=>{if(!blob)return status('导出失败，请重试');const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`漫画风格迁移应用-${Date.now()}.png`;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);},'image/png');};
 function stopCamera(){stream?.getTracks().forEach(t=>t.stop());stream=null;$('video').srcObject=null;}
 $('camera-dialog').addEventListener('close',stopCamera);$('close-camera').onclick=()=>$('camera-dialog').close();
 $('camera').onclick=async()=>{
