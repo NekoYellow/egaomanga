@@ -47,10 +47,6 @@ npm run build
 - `reference-models/`：旧版人脸检测权重存档，独立于应用发布目录。
 - `tests/processing.test.mjs`：尺寸、蒙版、色阶压缩及透明度测试。
 
-## 手机与 OpenVINO 扩展
-
-当前浏览器使用 WASM。后续原生 Android 版本可复用同一 MobileNetV3 权重与处理流程，比较 MediaPipe 与 OpenVINO Android CPU 推理耗时、内存和功耗；在 Intel 设备上转换模型、验证张量布局与精度，再进行 FP16/INT8 优化。INT8 使用代表性人像校准，并比较人物边缘质量。
-
 ## 参考
 
 - [MobileNetV3 Selfie Segmentation](https://github.com/google-ai-edge/mediapipe/blob/master/docs/solutions/selfie_segmentation.md)
